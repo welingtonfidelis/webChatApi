@@ -5,15 +5,11 @@ const io = require('socket.io')(server, {cors: { origins:'*' }});
 const cors = require('cors');
 const port = 3001;
 const connectedUsers = {}
-const activeRooms = {
-    sala1: { message: [], connectedUsers: {}, total: 0 },
-    sala2: { message: [], connectedUsers: {}, total: 0 }
-}
+const activeRooms = {}
 
 app.use(cors());
 
 io.on('connection', (client) => {
-    console.log('CONETANDO', client.handshake.query);
     client.emit('receiveListOnlineUsers', connectedUsers);
     client.emit('receiveListRooms', activeRooms);
 
@@ -47,6 +43,12 @@ io.on('connection', (client) => {
         io.emit('newUserInRoom', { room, user });
     });
 
+    client.on('newRoom', data => {
+        const newRoom = { message: [], connectedUsers: {}, total: 0 }
+        activeRooms[data.room] = newRoom;
+        io.emit('receiveNewRoom', { [data.room]: newRoom });
+    });
+
     client.on('disconnect', data => {
         delete connectedUsers[client.id]
 
@@ -59,7 +61,11 @@ io.on('connection', (client) => {
                 delete activeRooms[key].connectedUsers[client.id];
                 activeRooms[key].total -= 1;
 
-                io.emit('removeUserRoom', { room: key });
+                if(activeRooms[key].total <= 0) {
+                    delete activeRooms[key]
+                    io.emit('removeRoom', { room: key });
+                }
+                else io.emit('removeUserRoom', { room: key });
             }
         }
     });
