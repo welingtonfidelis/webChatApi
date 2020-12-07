@@ -43,6 +43,27 @@ io.on('connection', (client) => {
         io.emit('newUserInRoom', { room, user });
     });
 
+    client.on('exitRoom', data => {
+        const { room, user } = data;
+        
+        client.leave(room);
+
+        for(const room of Object.entries(activeRooms)) {
+            const [ key, value ] = room;
+            const { connectedUsers } = value;
+            if(connectedUsers[client.id]) {
+                delete activeRooms[key].connectedUsers[client.id];
+                activeRooms[key].total -= 1;
+
+                if(activeRooms[key].total <= 0) {
+                    delete activeRooms[key]
+                    io.emit('removeRoom', { room: key });
+                }
+                else io.emit('removeUserRoom', { room: key, user });
+            }
+        }
+    });
+
     client.on('newRoom', data => {
         const newRoom = { message: [], connectedUsers: {}, total: 0 }
         activeRooms[data.room] = newRoom;
